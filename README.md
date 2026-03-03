@@ -3,7 +3,7 @@
 ![Firefly_Live](https://github.com/user-attachments/assets/d3bcf42c-0ff0-425c-ae7c-431caf1d517e)
 
 ## Live Demo
-You can access the live application here: [Project Name - AWS Hosted](http://your-s3-endpoint-url.com)
+You can access the live application here: [Live at Firefly Beer Predictor](http://your-s3-endpoint-url.com)
 
 This project analyzes historical concert data to predict beer sales using machine learning. It gathers and processes data such as artist popularity, venue size, weather, and day of the week to build a multi-target regression model for forecasting inventory needs. The goal is to reduce excess stock and improve operational efficiency for event-based beverage planning.
 
