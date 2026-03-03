@@ -8,7 +8,7 @@ You can access the live application here: [Live at Firefly Beer Predictor](http:
 ## Brief Summary
 This project analyzes historical concert data, artist information/demographics with Spotify's API, and historical weather information via Open Meteo API.
 
-The goal initially is to try and predict how much of the six beers would be sold, to aid with inventory management and ordering. Future iterations could span to analytical analysis/viz, cocktail sales, and
+The goal initially is to try and predict how much of the six beers would be sold, to aid with inventory management and ordering. Future iterations could span to BI/viz, cocktail sales, and
 any other metric we might be interested in.
 
 ## Methodology on Model Selection
