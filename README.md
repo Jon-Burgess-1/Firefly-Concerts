@@ -45,4 +45,4 @@ In this process, the model is trained N times (where N is the number of concerts
 The final production environment utilizes six independent XGBoost models, one specialized for each beer. This "one-model-per-brand" strategy allows the system to account for different consumer behaviors.
 5. Hyperparameter Optimization & Safety Buffers
 
-To maximize accuracy, Optuna was employed to conduct a Bayesian search for optimal hyperparameters (learning rate, tree depth, and subsampling). # This will be evaluated next concert season, as the calculated buffers often double inventory rates.
+To maximize accuracy, Optuna was employed to conduct a Bayesian search for optimal hyperparameters (learning rate, tree depth, and subsampling). **This will be evaluated next concert season, as the calculated buffers often double inventory rates.**
