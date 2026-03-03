@@ -46,3 +46,25 @@ The final production environment utilizes six independent XGBoost models, one sp
 5. Hyperparameter Optimization & Safety Buffers
 
 To maximize accuracy, Optuna was employed to conduct a Bayesian search for optimal hyperparameters (learning rate, tree depth, and subsampling). **This will be evaluated next concert season, as the calculated buffers often double inventory rates.**
+
+
+---
+
+## ☁️ Deployment & Infrastructure
+
+The **Firefly Engine** is deployed using a production-grade serverless architecture. This design ensures the forecasting tools are highly available, cost-effective, and environmentally consistent across the entire ML lifecycle.
+
+
+
+### Serverless Inference Pipeline
+* **Frontend (AWS S3):** The user interface is a decoupled, static HTML/JavaScript application hosted on **Amazon S3**. This allows for instantaneous loading and global accessibility without the overhead of a dedicated web server.
+* **Compute (Dockerized AWS Lambda):** The backend inference logic is containerized using **Docker** and deployed via **AWS Lambda**. By using a container image (hosted in **AWS ECR**), we ensure that the specific versions of `XGBoost` and `Scikit-learn` used during training are identical in the cloud environment, eliminating "it works on my machine" errors.
+* **Model Registry (AWS S3):** The six specialized beer models (`model_modelo.pkl`, `model_seltzer.pkl`, etc.) are treated as versioned artifacts and stored in a secure S3 bucket. The Lambda function dynamically pulls the required model into memory upon invocation to perform real-time predictions.
+* **API Layer (AWS API Gateway):** Acts as the secure bridge between the frontend and the cloud-native compute layer, handling RESTful requests and routing them to the appropriate inference logic.
+
+### Why This Architecture?
+1.  **Environment Parity:** The use of **Docker** provides a consistent runtime environment, which is critical for the numerical stability of Gradient Boosted Trees.
+2.  **Scalability:** The architecture is inherently "event-driven," automatically scaling to handle traffic surges during peak concert scheduling without manual server management.
+3.  **Cost-Performance Optimization:** As a serverless implementation, compute costs are only incurred during the few milliseconds of active inference, resulting in near-zero operational costs during idle periods.
+
+---
