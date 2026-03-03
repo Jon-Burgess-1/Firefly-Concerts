@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firefly Concert Beer Predictor</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; font-weight: bold; margin-bottom: 0.5rem; }
+        input, select { width: 100%; padding: 0.5rem; box-sizing: border-box; }
+        button { padding: 0.75rem 1.5rem; background-color: #007bff; color: white; border: none; cursor: pointer; font-size: 1rem; width: 100%; margin-top: 1rem; }
+        button:hover { background-color: #0056b3; }
+        .results-section { display: none; margin-top: 2rem; padding: 1rem; border: 1px solid #ccc; background-color: #f9f9f9; }
+        .result-item { font-size: 1.2rem; margin-bottom: 0.5rem; font-weight: bold; }
+        hr { margin: 2rem 0; border: 0; border-top: 1px solid #eee; }
+    </style>
+</head>
+<body>
+
+    <h1>Beverage Volume Predictor</h1>
+
+    <div id="input-section">
+        
+        <h3>Artist & Attendance</h3>
+        <div class="form-group">
+            <label>Expected Attendance (GA)</label>
+            <input type="number" id="raw_GA" value="4000">
+        </div>
+        <div class="form-group">
+            <label>Artist Followers (From Spotify)</label>
+            <input type="number" id="raw_Followers" value="250000">
+        </div>
+        <div class="form-group">
+            <label>Spotify Popularity (In Artist Bio)</label>
+            <input type="number" id="spotify_popularity" value="50">
+        </div>
+        <div class="form-group">
+            <label>Years Active</label>
+            <input type="number" id="years_active" value="10">
+        </div>
+
+        <hr>
+
+        <h3>External Factors</h3>
+        <div class="form-group">
+            <label>High Temp (°F)</label>
+            <input type="number" id="High_Temp" value="85">
+        </div>
+        <div class="form-group">
+            <label>Show Duration (Minutes)</label>
+            <input type="number" id="show_duration" value="270">
+        </div>
+        <div class="form-group">
+            <label>Month (1-12)</label>
+            <input type="number" id="month" value="7">
+        </div>
+        <div class="form-group">
+            <label>Is Weekend?</label>
+            <select id="is_weekend">
+                <option value="1">Yes (Fri/Sat/Sun)</option>
+                <option value="0">No (Mon-Thu)</option>
+            </select>
+        </div>
+
+        <hr>
+
+        <h3>Categorical Factors</h3>
+        <div class="form-group">
+            <label>Expected Rain Level</label>
+            <select id="rain_level">
+                <option value="None">None</option>
+                <option value="Light">Light</option>
+                <option value="Heavy">Heavy</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Genre</label>
+            <select id="generic_genre">
+                <option value="Country">Country</option>
+				<option value="Folk">Folk</option>
+				<option value="Hip-Hop">Hip-Hop</option>
+				<option value="Pop">Pop</option>
+				<option value="Reggae">Reggae</option>
+				<option value="Rock">Rock</option>
+				<option value="Other">Other (Baseline)</option>
+            </select>
+        </div>
+
+        <hr>
+        
+        <div class="form-group">
+            <label>Buffer Strategy</label>
+            <select id="buffer_type">
+                <option value="none">No Buffer (Raw Output)</option>
+                <option value="flat">Flat Buffer (+15%)</option>
+                <option value="optuna">Optuna Calculated Buffer</option>
+            </select>
+        </div>
+
+        <button onclick="calculatePredictions()">Predict Volumes</button>
+    </div>
+
+   <div id="results-section" class="results-section">
+        <h2>Predicted Volumes</h2>
+        <div id="model_modelo.pkl-result" class="result-item">Modelo: ...</div>
+        <div id="model_pacifico.pkl-result" class="result-item">Pacifico: ...</div>
+        <div id="model_corona.pkl-result" class="result-item">Corona: ...</div>
+        <div id="model_seltzer.pkl-result" class="result-item">Seltzer: ...</div>
+        <div id="model_montucky.pkl-result" class="result-item">Montucky: ...</div>
+        <div id="model_holy_city.pkl-result" class="result-item">Holy City: ...</div>
+        
+        <button onclick="resetForm()" style="background-color: #6c757d;">Start Over</button>
+    </div>
+
+    <script>
+        // API Gateway
+        const API_URL = "https://log24wesxw6zc4feiq2wzsgxam0ujefo.lambda-url.us-east-2.on.aws/";
+
+        function buildFeatureArray() {
+            // 1. Get raw attendance and convert to Log GA
+            const raw_GA = parseFloat(document.getElementById('raw_GA').value);
+            const log_GA = Math.log1p(raw_GA); // Use Math.log10(raw_GA) if your model used base 10
+			
+			// 2. Get raw followers and convert to Log Followers
+			const raw_Followers = parseFloat(document.getElementById('raw_Followers').value);
+			const log_Followers = Math.log1p(raw_Followers); // Use Math.log10 if you used base 10 in training
+
+            // 2. Get other numerical inputs
+            const spotify_popularity = parseFloat(document.getElementById('spotify_popularity').value);
+            const years_active = parseFloat(document.getElementById('years_active').value);
+            const high_Temp = parseFloat(document.getElementById('High_Temp').value);
+            const show_duration_minutes = parseFloat(document.getElementById('show_duration').value);
+			const show_duration = show_duration_minutes / 60.0;
+            const is_weekend = parseFloat(document.getElementById('is_weekend').value);
+			const month = parseFloat(document.getElementById('month').value);
+            
+
+            // 3. Get categorical selections
+            const selectedRain = document.getElementById('rain_level').value;
+            const selectedGenre = document.getElementById('generic_genre').value;
+
+			// 5. Build One-Hot Arrays 
+			// If 'Heavy' is selected, both of these become 0.
+			const rain_light = (selectedRain === 'Light') ? 1 : 0;
+			const rain_none = (selectedRain === 'None') ? 1 : 0;
+
+			const genre_country = (selectedGenre === 'Country') ? 1 : 0;
+			const genre_folk = (selectedGenre === 'Folk') ? 1 : 0;
+			const genre_hiphop = (selectedGenre === 'Hip-Hop') ? 1 : 0;
+			const genre_pop = (selectedGenre === 'Pop') ? 1 : 0;
+			const genre_reggae = (selectedGenre === 'Reggae') ? 1 : 0;
+			const genre_rock = (selectedGenre === 'Rock') ? 1 : 0;
+
+            // 5. Assemble the final master array
+            // WARNING: You MUST rearrange these variables so they are in the EXACT SAME 
+            // order as the columns in the dataframe you used to train your XGBoost models.
+            const finalFeatureArray = [
+				log_GA,                 // 1
+				log_Followers,          // 2
+				spotify_popularity,     // 3
+				years_active,           // 4
+				high_Temp,              // 5
+				show_duration,          // 6
+				is_weekend,             // 7
+				month,                  // 8
+				rain_light,             // 9
+				rain_none,              // 10
+				genre_country,          // 11
+				genre_folk,             // 12
+				genre_hiphop,           // 13
+				genre_pop,              // 14
+				genre_reggae,           // 15
+				genre_rock              // 16
+    ];
+
+            return finalFeatureArray;
+        }
+
+        async function calculatePredictions() {
+            const bufferType = document.getElementById('buffer_type').value;
+            const raw_GA = parseFloat(document.getElementById('raw_GA').value);
+            
+            // Build the array to send to AWS
+            const featureArray = buildFeatureArray();
+
+            // Change button text to show it's working
+            const btn = document.querySelector('button');
+            btn.innerText = "Calculating...";
+            btn.disabled = true;
+
+            try {
+                // Send data to AWS Lambda
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ features: featureArray })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+				// Add this line to peek inside the package!
+                console.log("AWS Response Data:", data);
+				
+                // Process the results
+                displayResults(data.predictions, raw_GA, bufferType);
+
+            } catch (error) {
+                alert("Error connecting to the prediction engine: " + error.message);
+                console.error(error);
+            } finally {
+                // Reset button state
+                btn.innerText = "Predict Volumes";
+                btn.disabled = false;
+            }
+        }
+
+        function displayResults(predictions, raw_GA, bufferType) {
+            // Hide input, show results
+            document.getElementById('input-section').style.display = 'none';
+            document.getElementById('results-section').style.display = 'block';
+
+            // Loop through the dictionary of predictions returned by Lambda
+            for (const [modelName, rawPerCapita] of Object.entries(predictions)) {
+                
+                // 1. Scale per capita back to Total Volume using the raw GA
+                let finalVolume = rawPerCapita * raw_GA;
+
+                // 2. Apply Buffer Logic
+                if (bufferType === 'flat') {
+                    finalVolume = finalVolume * 1.15; // +15%
+                } else if (bufferType === 'optuna') {
+                    // Update this specific math based on your Optuna findings
+                    finalVolume = finalVolume * 1.08 + 25; 
+                }
+
+               // Find the correct HTML element and update it
+                const resultElement = document.getElementById(`${modelName}-result`);
+                if (resultElement) {
+                    
+                    let brandName = "Unknown";
+                    
+                    // Map your specific filenames to the clean display names
+                    if (modelName === 'model_modelo.pkl') brandName = 'Modelo';
+                    if (modelName === 'model_pacifico.pkl') brandName = 'Pacifico';
+                    if (modelName === 'model_corona.pkl') brandName = 'Corona';
+                    if (modelName === 'model_seltzer.pkl') brandName = 'Seltzer';
+                    if (modelName === 'model_montucky.pkl') brandName = 'Montucky';
+                    if (modelName === 'model_holy_city.pkl') brandName = 'Holy City';
+
+                    // Update the screen with the calculated volume
+                    resultElement.innerText = `${brandName}: ${Math.round(finalVolume)} units`;
+                }
+            }
+        }
+
+        function resetForm() {
+            document.getElementById('input-section').style.display = 'block';
+            document.getElementById('results-section').style.display = 'none';
+            window.scrollTo(0, 0); // Scroll back to top
+        }
+    </script>
+</body>
+</html>
